@@ -1,0 +1,140 @@
+---
+title: "Forecasting Real Personal Consumption Expenditure"
+author: "Marleny Tochihuitl-Mendoza"
+date: "2025-02-26"
+output: html_document
+---
+
+```{r}
+library(knitr)
+RealPCE <- read.csv("/Users/marleny/Downloads/Consumption.csv", header = TRUE)
+
+names(RealPCE)[1] <- "Date"
+names(RealPCE)[2] <- "Real Personal Consumption Expenditure in USD"
+RealPCE$Date <- as.Date(RealPCE$Date)
+RealPCE$'Real Personal Consumption Expenditure in USD' <- as.numeric(RealPCE$'Real Personal Consumption Expenditure in USD')
+kable(RealPCE, caption = "Table: Real Personal Consumption Expenditure in USD")
+RealPCE.ts <-ts(RealPCE[,2], start = c(2014,4), end = c(2024,4), frequency = 4)
+RealPCE.ts
+library(fpp)
+library(fpp2)
+library(TTR)
+plot(RealPCE.ts, main = "Real Personal Consumption Expenditure in USD")
+Acf(RealPCE.ts)
+```
+
+##### The Acf plot shows that there is a decreasing trend, and that past lag 8, the values become insignificant. There is higher consumption expenditure at the start of each first quarter, that is at lag 1,4, 8, 12. 
+
+#### Mean Forecast
+```{r}
+mean_forecast <- meanf(RealPCE.ts,2)
+plot(mean_forecast)
+```
+
+#### Naive Forecast
+```{r}
+naive_forecast <- naive(RealPCE.ts,2)
+plot(naive_forecast)
+```
+
+#### Random Walk Forecasts
+```{r}
+rwf_forecast <- rwf(RealPCE.ts,2)
+plot(rwf_forecast)
+rwf_forecast <- rwf(RealPCE.ts, 2, drift = TRUE)
+plot(rwf_forecast)
+```
+
+#### Seasonal Naive Forecast
+```{r}
+snaive_forecast <- snaive(RealPCE.ts,2)
+plot(snaive_forecast)
+```
+
+#### Moving Averages 
+```{r}
+MA2_forecast <- ma(RealPCE.ts, order = 2)
+plot(MA2_forecast, main = "2-Period Moving Average Forecast")
+MA4_forecast <- ma(RealPCE.ts, order = 4)
+plot(MA4_forecast, main = "4-Period Moving Average Forecast")
+```
+
+#### Holt Winters Forecast
+```{r}
+#### Holt Winters
+HW_forecast <- HoltWinters(RealPCE.ts)
+plot(HW_forecast)
+SSE_Simple<- HoltWinters(RealPCE.ts, beta=FALSE, gamma=FALSE)
+plot(SSE_Simple)
+```
+
+#### Forecasts in One Chart
+
+```{r}
+plot(mean_forecast)
+lines(naive_forecast$mean, col="lightblue")
+lines(rwf_forecast$mean, col="pink")
+lines(snaive_forecast$mean, col="brown")
+lines(MA2_forecast, col= "green")
+lines(MA4_forecast, col="purple")   
+lines(HW_forecast$fitted[, 2], col = "blue") 
+lines(SSE_Simple$fitted[, 2], col = "red")
+```
+
+##### Since the naive forecast uses the latest value as the best predictor for future values, it will underestimate future values for personal consumption if the trend keeps moving in an upward direction, but it also provided a more accurate prediction than the seasonal naive model for example. The random walk model allows for a small random component, but it is similar to the naive output. The seasonal naive model assumes that the seasonal pattern repeats every cycle, which was not the case as seen on the Acf. The moving average models smoothed out fluctuations and were able to capture the trend better, with the MA2 model being more accurate. However, it is important to note that they still lagged behind the actual data. The Holt-Winters model accounts for both trend and seasonality and as can be seen followed the actual date very closely, meaning it is one of the best models for this dataset.
+
+### Decomposition 
+```{r}
+ets_forecast <- ets(RealPCE.ts)
+plot(ets_forecast)
+forecast_ets_1 <- forecast.ets(ets_forecast, h=3)
+plot(forecast_ets_1)
+```
+
+```{r}
+decomp_RealPCE.ts <- decompose(RealPCE.ts)
+plot(decomp_RealPCE.ts)
+```
+
+```{r}
+stl_decomp <- stl(RealPCE.ts,s.window="periodic")
+plot(stl_decomp)
+```
+
+#### Seasonal Adjustment Plot
+```{r}
+seasadj(stl_decomp)
+plot(RealPCE.ts)
+lines(seasadj(stl_decomp), col="purple")
+f_stl <- forecast(stl_decomp, h=4)
+f_stl
+plot(f_stl)
+```
+
+#### Accuracy Measure: MAPE  
+##### Based on the mean absolute percentage errors shown by each model, the best model is the Naive forecast model as it has the smallest MAPE value of 1.04. The second best model that follows is the Holt Winters forecasting model as it's MAPE is 1.19. The moving average models also have low MAPEs of 1.62 indicating better accuracy.
+
+```{r}
+### Seasonal Naive
+accuracy(snaive_forecast)
+### Mean
+accuracy(mean_forecast)
+### Naive 
+accuracy(naive_forecast)
+### Random Walk 
+accuracy(rwf_forecast)
+### MA2
+ma2 <- ma(RealPCE$`Real Personal Consumption Expenditure in USD`, order = 2, centre = FALSE)
+ma2
+fma2 <- forecast(ma2, h=2)
+accuracy(fma2)
+### MA4
+ma4 <- ma(RealPCE$`Real Personal Consumption Expenditure in USD`, order = 4, centre = FALSE)
+ma4
+fma4 <- forecast(ma4, h=4)
+accuracy(fma2)
+### Holt Winters
+forecast_HW <- forecast(HW_forecast, h=2)
+accuracy(forecast_HW)
+```
+
